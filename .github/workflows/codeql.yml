@@ -32,11 +32,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - language: python
-          build-mode: none
+          - language: python
+            build-mode: none
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        # Fetch depth 0 is needed for git diff to work correctly across commits.
+        # However, for security reasons, it's often better to fetch a limited history
+        # or use a different method to get changed files if you only need the current PR's changes.
+        # For this specific case of checking changed files in the current run,
+        # fetching the full history might be overkill and less secure.
+        # A shallow clone (e.g., fetch-depth: 2) is often sufficient to compare HEAD with HEAD~1.
+        # For pull requests, checking out the pull request ref itself is more robust.
+        fetch-depth: 0 # Ensure full history is available for git diff operations
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -59,7 +68,34 @@ jobs:
       run: |
         echo "Scanning for forbidden strings..."
         forbidden_patterns=("Infosys Limited" "Infosys Ltd." "@infosys.com")
-        files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+        
+        # Determine the files changed based on the event type
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          # For pull requests, compare against the base branch
+          files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+        elif [[ "${{ github.event_name }}" == "push" ]]; then
+          # For pushes, compare the current commit with the previous one
+          # This handles force pushes and rebased history better than github.event.before
+          if [[ -n "${{ github.event.before }}" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            # If github.event.before is a valid SHA, use it. This is more robust for regular pushes.
+            files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          else
+            # Fallback for force pushes or initial pushes, compare HEAD with its parent
+            # This will get changes relative to the immediate previous commit.
+            files=$(git diff --name-only HEAD~1 HEAD)
+          fi
+        else
+          # For scheduled runs or other events, check all files in the current commit
+          echo "Warning: Running on an unsupported event type for incremental diff. Checking all files."
+          files=$(git ls-files)
+        fi
+        
+        if [ -z "$files" ]; then
+          echo "No files changed in this event to check for forbidden strings."
+          echo "✅ No forbidden strings found."
+          exit 0
+        fi
+
         for file in $files; do
           if [ -f "$file" ]; then
             for pattern in "${forbidden_patterns[@]}"; do
