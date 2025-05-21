@@ -55,13 +55,6 @@ jobs:
       with:
         category: "/language:${{matrix.language}}"
 
-  scan_forbidden_strings:
-    name: Scan for Forbidden Strings
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
     - name: Check for forbidden strings
       run: |
         echo "Scanning for forbidden strings..."
