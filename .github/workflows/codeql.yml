@@ -91,6 +91,7 @@ jobs:
               if grep -q "$pattern" "$file"; then
                 echo "❌ Forbidden pattern '$pattern' found in file: $file"
                 found_forbidden=true # Mark that a forbidden string was found
+                exit 1
               fi
             done
           fi
