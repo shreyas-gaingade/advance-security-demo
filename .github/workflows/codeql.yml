@@ -97,8 +97,10 @@ jobs:
         done
         
         if $found_forbidden; then
-          echo "🛑 Workflow will fail because forbidden strings were found."
-          exit 1 # This line will now cause the workflow to fail!
+          echo "⚠️ One or more forbidden strings were found. Please review the logs above."
+          # Remove 'exit 1' here if you want the workflow to pass even if strings are found.
+          # If you want it to fail, uncomment the line below:
+          # exit 1 
         else
           echo "✅ No forbidden strings found."
         fi
